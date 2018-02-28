@@ -1,0 +1,55 @@
+---
+
+- name: Disable swap
+  import_tasks: swapoff.yml
+
+- name: Install docker
+  import_tasks: docker.yml
+
+- name: Add repo key
+  apt_key:
+    url: "https://packages.cloud.google.com/apt/doc/apt-key.gpg"
+    state: present
+
+- name: Add kubernetes repo
+  apt_repository: 
+    repo: 'deb http://apt.kubernetes.io/ kubernetes-xenial main' 
+    state: present 
+    update_cache: yes
+
+- name: Install kubernetes packages
+  apt:
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - kubelet
+    - kubeadm
+    - kubectl
+
+- name: Kubeadm init
+  command: kubeadm init --pod-network-cidr={{kubernete_cluster_cidr}}
+
+- sysctl:
+    name: net.bridge.bridge-nf-call-iptables
+    value: 1
+    sysctl_set: yes
+    state: present
+    reload: yes
+
+- copy:
+    dest: /etc/profile.d/kube.sh
+    content: "export KUBECONFIG=/etc/kubernetes/admin.conf"
+
+- stat:
+    command: $(kubectl version | base64 | tr -d '\n')
+  register: kubever
+
+- name: Install Weave
+  command: kubectl apply -f "https://cloud.weave.works/k8s/net?k8s-version={{kubever}}"
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+
+- name: Taint the master node
+  command: kubectl taint nodes --all node-role.kubernetes.io/master-
+
+

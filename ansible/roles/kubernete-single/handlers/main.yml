@@ -1,0 +1,9 @@
+---
+- name: sysctl-system
+  command: sysctl --system
+
+- name: restart docker
+  systemd:
+    state: restarted
+    daemon_reload: yes
+    name: docker.service

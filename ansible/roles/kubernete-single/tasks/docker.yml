@@ -1,0 +1,33 @@
+- name: Ensure depdencies are installed.
+  apt:
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - apt-transport-https
+    - ca-certificates
+    - software-properties-common
+    - curl
+    - docker.io
+
+- group:
+    name: docker
+    state: present
+
+- user:
+    name: "{{ lookup('env','USER') }}"
+    groups: docker
+    append: yes
+
+- sysctl:
+    name: net.ipv6.conf.all.forwarding
+    value: 1
+    sysctl_set: yes
+    state: present
+    reload: yes
+
+- name: Ensure Docker is started and enabled at boot.
+  systemd:
+    name: docker
+    daemon_reload: yes
+    state: restarted
+    enabled: yes
