@@ -1,7 +1,14 @@
+- name: Disable swap
+  command: swapoff -a
+
+- name: Disable swappiness 
+  sysctl:
+    name: 'vm.swappiness'
+    value: '0'
+    state: present
+
 - name: Remove swapfile from /etc/fstab
   mount:
     name: swap
     fstype: swap
     state: absent
-- name: Disable swap
-  command: swapoff -a

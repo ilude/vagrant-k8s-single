@@ -28,6 +28,8 @@
 
 - name: Kubeadm init
   command: kubeadm init --pod-network-cidr={{kubernete_cluster_cidr}}
+  args:
+    creates: /etc/kubernetes/pki
 
 - sysctl:
     name: net.bridge.bridge-nf-call-iptables
@@ -36,20 +38,42 @@
     state: present
     reload: yes
 
+- name: Make admin.conf readable
+  file:
+    path: /etc/kubernetes/admin.conf
+    mode: u=rwX,g=rX,o=rX
+
 - copy:
     dest: /etc/profile.d/kube.sh
     content: "export KUBECONFIG=/etc/kubernetes/admin.conf"
 
-- stat:
-    command: $(kubectl version | base64 | tr -d '\n')
-  register: kubever
+  # master nodes by default have a taint applied that causes all 
+  # pods, that lack node-role.kubernetes.io/master tolerations, 
+  # to be scheduled on other nodes in the cluster
+  # this command removes that taint and allows all pods to run on this
+  # single node cluster 
+- name: check for master taint
+  shell: "kubectl --kubeconfig /etc/kubernetes/admin.conf describe nodes | grep 'Taints:             <none>' | wc -l"
+  args:
+    executable: /bin/bash
+  register: taint_check
 
-- name: Install Weave
-  command: kubectl apply -f "https://cloud.weave.works/k8s/net?k8s-version={{kubever}}"
-  environment:
-    KUBECONFIG: /etc/kubernetes/admin.conf
+#- debug: msg={{taint_check}}
 
 - name: Taint the master node
   command: kubectl taint nodes --all node-role.kubernetes.io/master-
+  environment:
+    KUBECONFIG: /etc/kubernetes/admin.conf
+  when: taint_check.stdout == "0"
 
+- shell: "kubectl --kubeconfig /etc/kubernetes/admin.conf version | base64 | tr -d '\n'"
+  args:
+    executable: /bin/bash
+  register: kubever
 
+- debug: msg={{kubever}}
+
+- name: Install Weave
+  shell: kubectl --kubeconfig /etc/kubernetes/admin.conf apply -f "https://cloud.weave.works/k8s/net?k8s-version={{kubever.stdout}}"
+  args:
+    executable: /bin/bash
