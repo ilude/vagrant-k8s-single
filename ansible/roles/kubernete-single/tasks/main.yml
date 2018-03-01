@@ -71,7 +71,7 @@
     executable: /bin/bash
   register: kubever
 
-- debug: msg={{kubever}}
+#- debug: msg={{kubever}}
 
 - name: Install Weave
   shell: kubectl --kubeconfig /etc/kubernetes/admin.conf apply -f "https://cloud.weave.works/k8s/net?k8s-version={{kubever.stdout}}"
